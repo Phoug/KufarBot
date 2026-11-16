@@ -27,6 +27,11 @@
 #endif
 
 #include <optional>
+#include <ostream>
+#include <cstdint>
+#include <ctime>
+#include <limits>
+#include <type_traits>
 #include "json.hpp"
 
 static const std::string PROPERTY_UNDEFINED = "[UNDEFINED]";
@@ -37,10 +42,18 @@ static const std::string PROPERTY_UNDEFINED = "[UNDEFINED]";
  */
 
 template<typename T>
-std::optional<T> getOptionalValue(const nlohmann::json &obj, const std::string &key) try {
-    return obj.at(key).get<T>();
-} catch (...) {
-    return std::nullopt;
+std::optional<T> getOptionalValue(const nlohmann::json &obj, const std::string &key) {
+    if (!obj.is_object()) { throw std::runtime_error("Expected a JSON object"); }
+    if (!obj.contains(key)) { return std::nullopt; }
+    const auto &value = obj.at(key);
+    if constexpr ((std::is_integral_v<T> && !std::is_same_v<T, bool>) || std::is_enum_v<T>) {
+        if (!value.is_number_integer()) { throw std::runtime_error("Expected integer: " + key); }
+        const auto number = value.get<long double>();
+        if (number < std::numeric_limits<int>::min() || number > std::numeric_limits<int>::max()) {
+            throw std::runtime_error("Integer out of range: " + key);
+        }
+    }
+    return value.get<T>();
 }
 
 /**
@@ -65,11 +78,6 @@ std::ostream &operator << (std::ostream &os, std::optional<T> const &opt) {
 }
 
 /**
-  Проверка вектора на наличие заданного значения
- */
-bool vectorContains(const std::vector<int> &, const int &);
-
-/**
   Проверка на существование файла
  */
 
@@ -86,6 +94,7 @@ uint64_t getFileSize(const std::string &);
  */
 
 std::string getTextFromFile(const std::string &);
+nlohmann::json parseJSON(const std::string &);
 
 /**
  Конвертирование времени Zulu формата

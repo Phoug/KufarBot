@@ -6,10 +6,13 @@
 //
 
 #include <iostream>
-#include <unistd.h>
-#include <signal.h>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <cstdlib>
 #include <fstream>
 #include <vector>
+#include <unordered_set>
 
 #include "json.hpp"
 #include "kufar.hpp"
@@ -52,13 +55,29 @@ struct ProgramConfiguration {
 void loadJSONConfigurationData(const json &data, ProgramConfiguration &programConfiguration) {
     {
         json telegramData = data.at("telegram");
-        programConfiguration.telegramConfiguration.botToken = telegramData.at("bot-token");
-        programConfiguration.telegramConfiguration.chatID = telegramData.at("chat-id");
+        auto &telegram = programConfiguration.telegramConfiguration;
+        const char *token = getenv("TELEGRAM_BOT_TOKEN");
+        telegram.botToken = token ? string(token) : telegramData.value("bot-token", string());
+        const auto colon = telegram.botToken.find(':');
+        if (colon == string::npos || colon == 0 || colon + 1 == telegram.botToken.size() ||
+            telegram.botToken.substr(0, colon).find_first_not_of("0123456789") != string::npos ||
+            telegram.botToken.substr(colon + 1).find_first_not_of(
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-") != string::npos) {
+            throw runtime_error("Invalid Telegram bot token; set TELEGRAM_BOT_TOKEN or telegram.bot-token");
+        }
+        const auto &chat = telegramData.at("chat-id");
+        if (!chat.is_number_integer() || chat.get<long double>() < -4503599627370495.0L ||
+            chat.get<long double>() > 4503599627370495.0L || chat.get<int64_t>() == 0) {
+            throw runtime_error("telegram.chat-id must be a nonzero signed integer (groups have negative IDs)");
+        }
+        telegram.chatID = chat.get<int64_t>();
     }
     {
         json queriesData = data.at("queries");
         
-        unsigned int index = 0;
+        if (!queriesData.is_array() || queriesData.empty()) {
+            throw runtime_error("queries must be a nonempty array");
+        }
         for (const json &query : queriesData) {
             KufarConfiguration kufarConfiguration;
             
@@ -86,24 +105,47 @@ void loadJSONConfigurationData(const json &data, ProgramConfiguration &programCo
             kufarConfiguration.subCategory = getOptionalValue<int>(query, "sub-category");
             kufarConfiguration.region = getOptionalValue<Region>(query, "region");
             kufarConfiguration.areas = getOptionalValue<vector<int>>(query, "areas");
+            const auto &q = kufarConfiguration;
+            if ((q.limit && (*q.limit < 1 || *q.limit > 100)) ||
+                (q.category && int(*q.category) <= 0) ||
+                (q.subCategory && *q.subCategory <= 0) ||
+                (q.priceRange.priceMin && *q.priceRange.priceMin < 0) ||
+                (q.priceRange.priceMax && *q.priceRange.priceMax < 0) ||
+                (q.priceRange.priceMin && q.priceRange.priceMax && *q.priceRange.priceMin > *q.priceRange.priceMax) ||
+                (q.condition && (int(*q.condition) < 1 || int(*q.condition) > 2)) ||
+                (q.sellerType && (int(*q.sellerType) < 0 || int(*q.sellerType) > 1)) ||
+                (q.sortType && (int(*q.sortType) < 1 || int(*q.sortType) > 2)) ||
+                (q.region && (int(*q.region) < 1 || int(*q.region) > 7))) {
+                throw runtime_error("Invalid query limit, price range or enum value");
+            }
+            if (q.areas) {
+                for (const auto &area : query.at("areas")) {
+                    if (!area.is_number_integer() || area.get<long double>() <= 0 ||
+                        area.get<long double>() > numeric_limits<int>::max()) {
+                        throw runtime_error("areas must contain positive integer IDs");
+                    }
+                }
+            }
             programConfiguration.kufarConfiguration.push_back(kufarConfiguration);
-            
-            index += 1;
         }
     }
     {
         if (data.contains("delays")) {
             json delaysData = data.at("delays");
-            programConfiguration.queryDelaySeconds = delaysData.at("query");
-            programConfiguration.loopDelaySeconds = delaysData.at("loop");
+            programConfiguration.queryDelaySeconds = getOptionalValue<int>(delaysData, "query").value_or(5);
+            programConfiguration.loopDelaySeconds = getOptionalValue<int>(delaysData, "loop").value_or(30);
         }
+    }
+    if (programConfiguration.queryDelaySeconds < 1 || programConfiguration.queryDelaySeconds > 86400 ||
+        programConfiguration.loopDelaySeconds < 1 || programConfiguration.loopDelaySeconds > 86400) {
+        throw runtime_error("delays must be between 1 and 86400 seconds");
     }
 }
 
 void printJSONConfigurationData(const ProgramConfiguration &programConfiguration) {
     cout <<
     "- Telegram:\n"
-        "\t- Токен: " << programConfiguration.telegramConfiguration.botToken << "\n"
+        "\t- Токен: " << "[hidden]" << "\n"
         "\t- ID Чата: " << programConfiguration.telegramConfiguration.chatID << "\n\n"
     "- Запросы:\n";
     
@@ -123,7 +165,7 @@ void printJSONConfigurationData(const ProgramConfiguration &programConfiguration
              EnumString::sellerType(query.sellerType.value()) : PROPERTY_UNDEFINED) << "\n"
         "\t- Только с Kufar Доставкой: " << query.kufarDeliveryRequired << "\n"
         "\t- Только с Kufar Оплатой: " << query.kufarPaymentRequired << "\n"
-        "\t- Только с Kufar Рассрочкой (Халва): " << query.kufarPaymentRequired << "\n"
+        "\t- Только с Kufar Рассрочкой (Халва): " << query.kufarHalvaRequired << "\n"
         "\t- Только с фото: " << query.onlyWithPhotos << "\n"
         "\t- Только с видео: " << query.onlyWithVideos << "\n"
         "\t- Только с возможностью обмена: " << query.onlyWithExchangeAvailable << "\n"
@@ -166,17 +208,17 @@ json getJSONDataFromPath(const string &JSONFilePath) {
         exit(1);
     }
     
-    if (getFileSize(JSONFilePath) > 4000000) {
-        cout << "[ОШИБКА]: Размер файла превышает 4МБ." << endl;
+    if (getFileSize(JSONFilePath) > 64000000) {
+        cout << "[ОШИБКА]: Размер файла превышает 64МБ." << endl;
         exit(1);
     }
         
     try {
-       json textFromFile = json::parse(getTextFromFile(JSONFilePath));
+       json textFromFile = parseJSON(getTextFromFile(JSONFilePath));
        return textFromFile;
-    } catch (const exception &exc) {
+    } catch (const exception &) {
        cout << "[ОШИБКА]: Невозможно получить данные из файла " << '"' << JSONFilePath << '"' << endl;
-       cout << "::: " << exc.what() << " :::" << endl;
+       cerr << "Invalid JSON (details hidden to protect credentials)." << endl;
        exit(1);
     }
 
@@ -194,7 +236,7 @@ const string prefixCacheFile = "--cache=";
 Files getFiles(const int &argsCount, char **args) {
     Files files;
     
-    for (int i = 0; i < argsCount; i++){
+    for (int i = 1; i < argsCount; i++){
         string currentArgument = args[i];
         
         if(stringHasPrefix(currentArgument, prefixConfigurationFile)) {
@@ -203,77 +245,93 @@ Files getFiles(const int &argsCount, char **args) {
         } else if (stringHasPrefix(currentArgument, prefixCacheFile)) {
             currentArgument.erase(0, prefixCacheFile.length());
             files.cache.path = currentArgument;
+        } else {
+            throw runtime_error("Unknown argument; use --config=PATH and --cache=PATH");
         }
         
     }
     
-    if (files.configuration.path.empty() || files.cache.path.empty()) {
-        optional<string> applicationDirectory = getWorkingDirectory();
-        
-        if (!applicationDirectory.has_value()) {
-            cout << "[ОШИБКА]: Невозможно автоматически определить путь к текущей папке. Передайте файл конфигурации/кеша в виде аргумента." << endl;
-            exit(1);
-        }
-        
-        if (files.configuration.path.empty()) {
-            files.configuration.path = applicationDirectory.value() + PATH_SEPARATOR + CONFIGURATION_FILE_NAME;
-        }
-        
-        if (files.cache.path.empty()) {
-            files.cache.path = applicationDirectory.value() + PATH_SEPARATOR + CACHE_FILE_NAME;
-        }
+    if (files.configuration.path.empty()) {
+        files.configuration.path = (filesystem::current_path() / CONFIGURATION_FILE_NAME).string();
+    }
+    if (files.cache.path.empty()) {
+        files.cache.path = (filesystem::current_path() / CACHE_FILE_NAME).string();
     }
     
+    if (filesystem::weakly_canonical(files.configuration.path) == filesystem::weakly_canonical(files.cache.path) ||
+        (filesystem::exists(files.configuration.path) && filesystem::exists(files.cache.path) &&
+         filesystem::equivalent(files.configuration.path, files.cache.path))) {
+        throw runtime_error("Configuration and cache must be different files");
+    }
     files.configuration.contents = getJSONDataFromPath(files.configuration.path);
-    files.cache.contents = getJSONDataFromPath(files.cache.path);
+    files.cache.contents = filesystem::exists(files.cache.path) ? getJSONDataFromPath(files.cache.path) : json::array();
+    if (!files.cache.contents.is_array()) { throw runtime_error("Cache must be a JSON array"); }
+    for (const auto &id : files.cache.contents) {
+        if (!id.is_number_integer() || id.get<long double>() <= 0 ||
+            (id.is_number_unsigned() && id.get<uint64_t>() > uint64_t(numeric_limits<int64_t>::max()))) {
+            throw runtime_error("Cache must contain positive 64-bit integer IDs");
+        }
+    }
     
     return files;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) try {
     ProgramConfiguration programConfiguration;
-    vector<int> viewedAds;
+    unordered_set<int64_t> viewedAds;
     
     programConfiguration.files = getFiles(argc, argv);
     loadJSONConfigurationData(programConfiguration.files.configuration.contents, programConfiguration);
     printJSONConfigurationData(programConfiguration);
 
-    viewedAds = programConfiguration.files.cache.contents.get<vector<int>>();
+    viewedAds = programConfiguration.files.cache.contents.get<unordered_set<int64_t>>();
+    // Verify persistence before sending anything, including recovery from an unfinished write.
+    saveFile(programConfiguration.files.cache.path, json(viewedAds).dump());
 
     while (true) {
         for (auto requestConfiguration : programConfiguration.kufarConfiguration) {
-            unsigned int sentCount = 0;
             
             try {
                 for (const auto &advert : getAds(requestConfiguration)) {
-                    if (!vectorContains(viewedAds, advert.id)) {
-                        cout << "[New]: Adding [Title: " << advert.title << "], [ID: " << advert.id << "], [Tag: " << advert.tag << "], [Link: " << advert.link << "]" << endl;
-                        viewedAds.push_back(advert.id);
-                        sentCount += 1;
+                    if (viewedAds.count(advert.id) == 0) {
+                        cout << "[New]: ID " << advert.id << endl;
 
                         try {
                             sendAdvert(programConfiguration.telegramConfiguration, advert);
                         } catch (const exception &exc) {
                             cerr << "[ERROR (sendAdvert)]: " << exc.what() << endl;
+                            break; // Retry on the next poll; do not flood Telegram after a rate limit.
+                        }
+                        viewedAds.insert(advert.id);
+                        try {
+                            saveFile(programConfiguration.files.cache.path, json(viewedAds).dump());
+                        } catch (...) {
+                            cerr << "Cannot persist cache; stopping to avoid repeated notifications." << endl;
+                            return 1;
                         }
                         
-                    } else {
-                        //cout << "[Already was!]" << endl;
                     }
-                    usleep(300000); // 0.3s
+                    this_thread::sleep_for(chrono::seconds(1));
                 }
+            } catch (const nlohmann::json::exception &) {
+                cerr << "[ERROR (getAds)]: Invalid Kufar JSON response." << endl;
             } catch (const exception &exc) {
                 cerr << "[ERROR (getAds)]: " << exc.what() << endl;
             }
             DEBUG_MSG("[DEBUG]: " << "(QueryDelay) Sleeping for: " << programConfiguration.queryDelaySeconds << "s.");
-            sleep(programConfiguration.queryDelaySeconds);
-            
-            if (sentCount > 0) {
-                saveFile(programConfiguration.files.cache.path, ((json)viewedAds).dump());
-            }
+            this_thread::sleep_for(chrono::seconds(programConfiguration.queryDelaySeconds));
+
         }
         DEBUG_MSG("[DEBUG]: " << "(LoopDelay) Sleeping for: " << programConfiguration.loopDelaySeconds << "s.");
-        sleep(programConfiguration.loopDelaySeconds);
+        this_thread::sleep_for(chrono::seconds(programConfiguration.loopDelaySeconds));
     }
     return 0;
+}
+ catch (const nlohmann::json::exception &) {
+    // JSON conversion errors may include secret values from the configuration.
+    cerr << "Startup failed: check JSON types, Telegram credentials, query ranges, delays and file permissions." << endl;
+    return 1;
+} catch (const std::exception &error) {
+    cerr << "Startup failed: " << error.what() << endl;
+    return 1;
 }

@@ -1,153 +1,293 @@
-<h1>Kufar Telegram Notifier</h1>
-<b>Kufar Telegram Notifier</b> - бот, который раз в заданное время ведет опрос официального Kufar API для поиска новых объявлений по заданным ключевым словам для последующей отправки результатов в Telegram чат.<br>
-Использование данного бота предусматривается только для ознакомительных целей.<br><br>
-<pre>Если Вы являетесь администрацией Kufar и у Вас имеются претензии к данному проекту - обращайтесь в раздел «<i>Issues</i>» для обратной связи.</pre>
-<p align="center">
-   <img src="https://user-images.githubusercontent.com/83237609/180989226-ec24b7d5-63ea-4ed5-9830-dd40d27ee30d.png" width="600"/>
-</p>
-<h2>Инструкция по сборке</h2>
-<details>
-   <summary>
-      <h3>
-         Linux
-      </h3>
-   </summary>
-   <ol>
-      <li>Установите g++: <code>sudo apt-get install g++</code></li>
-      <li>
-         Установите curl: <code>sudo apt-get install curl libcurl4-gnutls-dev</code>
-      </li>
-      <li>
-         Установите make и cmake: <code>sudo apt-get install make cmake</code>
-      </li>
-      <li>
-         <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/releases">Загрузите</a> исходный код последней версии программы:<br>
-      </li>
-      <li>
-         Распакуйте архив с исходным кодом программы
-      </li>
-      <li>С помощью <code>cd</code> перейдите в директорию c проектом</li>
-      <li>Соберите исполняемый файл с помощью:<br>
-            <code>cmake .</code><br>
-            <code>make</code>
-      </li>
-   </ol>
-</details>
-<details>
-   <summary>
-      <h3>macOS</h3>
-   </summary>
-   <details>
-      <summary>Через Xcode (через графический интерфейс)</summary>
-      <ol>
-         <li>
-            <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/releases">Загрузите</a> исходный код последней версии программы:<br>
-         </li>
-         <li>
-            Распакуйте архив с исходным кодом программы
-         </li>
-         <li>
-            Откройте <code>Kufar Telegram Notifier.xcodeproj</code> в Xcode
-         </li>
-         <li>
-            В верхнем меню-баре выберите "Product" -> "Archive"
-         </li>
-         <li>
-            В новом открывшемся окне нажмите "Distribute Content" -> "Built Products" -> "Next" -> "Export"
-         </li>
-      </ol>
-   </details>
-   <details>
-      <summary>Через Xcode Command Line Tools (через консольный интерфейс)</summary>
-      <ol>
-         <li>
-            Установите Xcode Command Line Tools: <code>xcode-select —install</code>
-         </li>
-         <li>
-            <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/releases">Загрузите</a> исходный код последней версии программы<br>
-         </li>
-         <li>
-            Распакуйте архив с исходным кодом программы
-         </li>
-         <li>С помощью <code>cd</code> перейдите в директорию c проектом</li>
-        <li>Соберите исполняемый файл с помощью:<br>
-            <code>cmake .</code><br>
-            <code>make</code>
-        </li>
-      </ol>
-   </details>
-</details>
-<h2>Конфигурация программы</h2>
-<details>
-   <summary>
-      Настройка kufar-configuration.json
-   </summary>
-   <details>
-      <summary>
-         Telegram
-      </summary>
-      <b>bot-token</b> - токен вашего бота, который будет отправлять сообщения.<br>
-      <b>chat-id</b> - идентификатор чата, в который будут отправляться сообщения.
-   </details>
-   <details>
-      <summary>
-         Queries
-      </summary>
-      <b>tag</b> - поисковой запрос. <sup>(Опционально)</sup><br>
-      <b>only-title-search</b> - осуществление поиска только в заголовках. <sup>(Опционально)</sup>
-      <details>
-         <summary>
-            Price <sup>(Опционально)</sup>
-         </summary>
-         <b>min</b> - минимальная цена (целочисленное значение в BYN). <sup>(Опционально)</sup><br>
-         <b>max</b> - максимальная цена (целочисленное значение в BYN). <sup>(Опционально)</sup>
-      </details>
-      <b>language</b> - язык. <sup>(Опционально)</sup><br>
-      <b>limit</b> - ограничение на количество получаемых объявлений за один запрос. <sup>(Опционально)</sup><br>
-      <b>currency</b> - валюта <sup>(Опционально)</sup><br>
-      <b>condition</b> - <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/blob/4e5eb51e3664c5e4e96812a5e146e41087787484/include/kufar.hpp#L515">состояние</a> (новое / б/y). <sup>(Опционально)</sup><br>
-      <b>seller-type</b> - <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/blob/4e5eb51e3664c5e4e96812a5e146e41087787484/include/kufar.hpp#L520">тип продавца</a> (частное лицо / компания). <sup>(Опционально)</sup><br>
-      <b>kufar-delivery-required</b> - только с Kufar Доставкой. <sup>(Опционально)</sup><br>
-      <b>kufar-payment-required</b> - только с Kufar Оплатой. <sup>(Опционально)</sup><br>
-      <b>kufar-halva-required</b> - только с Kufar Рассрочкой (Халва). <sup>(Опционально)</sup><br>
-      <b>only-with-photos</b> - только с фото. <sup>(Опционально)</sup><br>
-      <b>only-with-videos</b> - только с видео. <sup>(Опционально)</sup><br>
-      <b>only-with-exchange-available</b> - только с возможностью обмена. <sup>(Опционально)</sup><br>
-      <b>sort-type</b> - <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/blob/4e5eb51e3664c5e4e96812a5e146e41087787484/include/kufar.hpp#L525">тип сортировки</a>. <sup>(Опционально)</sup><br>
-      <b>category</b> - <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/blob/4e5eb51e3664c5e4e96812a5e146e41087787484/include/kufar.hpp#L193">категория</a>. <sup>(Опционально)</sup><br>
-      <b>sub-category</b> - <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/blob/4e5eb51e3664c5e4e96812a5e146e41087787484/include/kufar.hpp#L217">подкатегория</a>. <sup>(Опционально)</sup><br>
-      <b>region</b> - <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/blob/4e5eb51e3664c5e4e96812a5e146e41087787484/include/kufar.hpp#L17">номер региона</a> для поиска объявлений. <sup>(Опционально)</sup><br>
-      <b>areas</b> - <a href="https://github.com/TechUnRestricted/Kufar-Telegram-Notifier/blob/4e5eb51e3664c5e4e96812a5e146e41087787484/include/kufar.hpp#L27">номера областей</a> для поиска объявлений. <sup>(Опционально)</sup>
-   </details>
-   <details>
-      <summary>
-         Delays
-      </summary>
-      <b>query</b> - задержка (в секундах) перед переходом к следующему поисковому запросу.<br>
-      <b>loop</b> - задержка (в секундах) перед повторением поиска по очереди с начала.<br>
-   </details>
-</details>
-<details>
-     <summary>
-         Настройка cached-data.json
-     </summary>
-Настраивать данный файл не нужно.<br>
-Достаточно убедиться в том, что он представляет из себя валидный JSON файл со структурой <code>[]</code> (массив).<br>
-Предназначение: хранит в себе идентификаторы отправленных объявлений для предотвращения повторной отправки при перезапуске программы.
-</details>
-<h2>Запуск:</h2>
-   <details>
-      <summary>
-         Вариант с указанием путей к файлам конфигурации и кеша.
-      </summary>
-      <code>bin/Kufar-Telegram-Notifier --config="/путь/к/kufar-configuration.json" --cache="/путь/к/cached-data.json"</code>
-   </details>
-   <details>
-      <summary>
-         Вариант с автоматическим поиском файлов конфигурации (<code>kufar-configuration.json</code>) и кеша (<code>cached-data.json</code>) в папке с программой.<br><sup>(Необходимо поместить <code>kufar-configuration.json</code> и <code>cached-data.json</code> в папку с программой)</sup>
-      </summary>
-      <code>bin/Kufar-Telegram-Notifier</code>
-   </details>
-<p align="center">
-   <img src="https://user-images.githubusercontent.com/83237609/181288185-7f9c23b0-32bf-4a1a-a3fd-168ed38255e1.png"/>
-</p>
+# Kufar Telegram Notifier
+
+Бот на C++17 опрашивает Kufar и отправляет новые объявления в Telegram.
+Ревизия актуальности: **16 ноября 2026 года**. Результаты проверок и ограничения описаны ниже.
+
+## Настройка
+
+Используется обычный **JSON без комментариев** и завершающих запятых.
+Файл .env автоматически не загружается. Пример хранится только в этом README.
+Если рабочего файла ещё нет, создайте `kufar-configuration.json` в корне проекта
+и скопируйте нужные настройки из примера. Существующий файл не перезаписывайте.
+
+Пример двух независимых поисков: б/у iPhone от частных лиц в Минске и ThinkPad с доставкой.
+Замените токен и ID получателя своими значениями; ненужный поиск удалите из массива queries.
+
+```json
+{
+  "telegram": {
+    "bot-token": "REPLACE_WITH_BOTFATHER_TOKEN",
+    "chat-id": 123456789
+  },
+  "queries": [
+    {
+      "tag": "iphone 15",
+      "only-title-search": true,
+      "price": { "min": 500, "max": 1800 },
+      "language": "ru",
+      "currency": "BYN",
+      "limit": 50,
+      "condition": 1,
+      "seller-type": 0,
+      "category": 17000,
+      "sub-category": 17010,
+      "region": 7,
+      "only-with-photos": true
+    },
+    {
+      "tag": "lenovo thinkpad",
+      "category": 16000,
+      "sub-category": 16040,
+      "price": { "max": 1200 },
+      "currency": "BYN",
+      "kufar-delivery-required": true,
+      "limit": 50
+    }
+  ],
+  "delays": { "query": 5, "loop": 60 }
+}
+```
+
+В локальном JSON укажите:
+
+- `telegram.bot-token`: токен от [@BotFather](https://t.me/BotFather).
+  Вместо него можно передать переменную окружения процесса `TELEGRAM_BOT_TOKEN`: она имеет приоритет.
+- `telegram.chat-id`: числовой ID получателя без кавычек. У групп он отрицательный.
+- `queries`: непустой массив поисковых запросов. Каждый объект — отдельный поиск,
+  фильтры внутри объекта применяются совместно. Кеш ID общий для всех поисков.
+- `delays.query` и `delays.loop`: паузы между запросами и обходами, в секундах (1–86400).
+
+Откройте личный чат с ботом и нажмите **Start**. В группе разрешите боту отправку сообщений;
+в канале назначьте администратором с правом публикации.
+ID берите из `message.chat.id` ответа [getUpdates](https://core.telegram.org/bots/api#getupdates),
+после сообщения боту. При активном webhook getUpdates недоступен.
+Не публикуйте URL с токеном и ответы с личными данными.
+Этот бот только отправляет уведомления, команды он не обрабатывает.
+
+Рабочий файл `kufar-configuration.json` исключён из Git; пример должен оставаться без секретов.
+Существующий рабочий файл не перезаписывайте: переносите нужные настройки вручную.
+Локальный конфиг хранится открытым текстом: ограничьте доступ к каталогу.
+
+### Фильтры
+
+Все поля запроса необязательны. Неверные типы теперь вызывают ошибку конфигурации.
+
+| Поле | Значение |
+| --- | --- |
+| tag | Строка поиска |
+| only-title-search | true — поиск по заголовку |
+| price.min / price.max | Целая цена в выбранной currency (по умолчанию BYN), от 0; минимум не больше максимума |
+| language / currency | Например, ru / BYN |
+| limit | 1–100 объявлений; в примере 30 |
+| condition | 1 — б/у, 2 — новое |
+| seller-type | 0 — частное лицо, 1 — компания |
+| sort-type | 1 — цена по убыванию, 2 — по возрастанию; без поля — порядок API |
+| category / sub-category | Числовые ID категории и подкатегории |
+| region | 1 — Брестская, 2 — Гомельская, 3 — Гродненская, 4 — Могилёвская, 5 — Минская, 6 — Витебская область, 7 — Минск |
+| areas | Массив ID городов/районов региона |
+| kufar-delivery-required / kufar-payment-required / kufar-halva-required | true или false |
+| only-with-photos / only-with-videos / only-with-exchange-available | true или false |
+
+Актуальные ID берите из фильтров [сайта Kufar](https://www.kufar.by/).
+Константы и русские названия в include/kufar.hpp — вспомогательный справочник,
+а не полный автоматически обновляемый каталог. Новые числовые ID можно передавать через JSON.
+
+### Другие варианты поиска
+
+Эти объекты можно добавлять в `queries`, разделяя запятыми. Пояснения остаются
+в README: внутрь рабочего JSON комментарии не копируйте.
+
+Простой поиск по всей Беларуси без ограничения цены:
+
+```json
+{
+  "tag": "iphone 15",
+  "language": "ru",
+  "currency": "BYN",
+  "limit": 30
+}
+```
+
+Новые телефоны от компаний с Kufar Оплатой и фильтром Халвы:
+
+```json
+{
+  "tag": "samsung",
+  "condition": 2,
+  "seller-type": 1,
+  "category": 17000,
+  "sub-category": 17010,
+  "currency": "BYN",
+  "kufar-payment-required": true,
+  "kufar-halva-required": true,
+  "limit": 30
+}
+```
+
+Квартиры в Центральном или Советском районе Минска, фильтр цены в USD.
+Это категория квартир: отдельного фильтра аренды/продажи в программе нет.
+Цена в уведомлении отображается в BYN.
+
+```json
+{
+  "category": 1000,
+  "sub-category": 1010,
+  "region": 7,
+  "areas": [22, 23],
+  "price": { "min": 30000, "max": 100000 },
+  "currency": "USD",
+  "only-with-photos": true,
+  "limit": 50
+}
+```
+
+Велосипеды в Бресте с возможностью обмена и видео:
+
+```json
+{
+  "tag": "велосипед",
+  "region": 1,
+  "areas": [1],
+  "currency": "BYN",
+  "only-with-exchange-available": true,
+  "only-with-videos": true,
+  "limit": 30
+}
+```
+
+Мониторы от 200 BYN, сначала самые дешёвые:
+
+```json
+{
+  "tag": "монитор",
+  "price": { "min": 200 },
+  "currency": "BYN",
+  "sort-type": 2,
+  "limit": 100
+}
+```
+
+Для мониторинга новых объявлений лучше не задавать `sort-type`: сортировка по цене
+может скрыть новые объявления за пределами окна `limit`.
+
+Все мобильные телефоны в категории, без поисковой фразы:
+
+```json
+{
+  "category": 17000,
+  "sub-category": 17010,
+  "currency": "BYN",
+  "limit": 100
+}
+```
+
+`false` у фильтров фото/доставки снимает требование, а не означает «только без них».
+Для любого региона, состояния или продавца удалите соответствующее поле,
+не заменяйте его на `null`. Два поиска с задержками 5/60 занимают минимум
+70 секунд плюс время сети и отправки уведомлений.
+
+## Сборка
+
+Нужны C++17-компилятор, CMake 3.16+ и **libcurl 8.23.0+ с HTTPS**.
+nlohmann/json **3.12.0** уже включён в include/json.hpp.
+Один curl.exe не заменяет заголовки и библиотеку libcurl.
+
+### Windows
+
+Используйте совместимые архитектуру и ABI: MSVC + библиотека для MSVC
+либо MinGW/Zig + библиотека для MinGW.
+[Официальный curl для Windows](https://curl.se/windows/) содержит MinGW-библиотеку, заголовки и DLL.
+
+Для уже установленного набора инструментов:
+
+```powershell
+cmake -S . -B .build -DCURL_ROOT="C:/path/to/curl"
+cmake --build .build --config Release
+ctest --test-dir .build -C Release --output-on-failure
+```
+
+Ninja/MinGW: результат .build/bin/Kufar-Telegram-Notifier.exe.
+Visual Studio: .build/bin/Release/Kufar-Telegram-Notifier.exe.
+При динамической линковке положите DLL libcurl и её зависимости рядом с EXE.
+
+В этой рабочей копии инструменты проверки находятся в .venv, libcurl — в .build/deps.
+Они исключены из Git. После первоначальной настройки повторная сборка:
+
+```powershell
+$env:ZIG_GLOBAL_CACHE_DIR = "$PWD/.build/zig-cache"
+$env:ZIG_LOCAL_CACHE_DIR = "$PWD/.build/zig-local-cache"
+.\.venv\Scripts\cmake.exe --build .build --config Release
+.\.venv\Scripts\ctest.exe --test-dir .build -C Release --output-on-failure
+```
+
+### Linux / macOS
+
+Установите актуальные C++-инструменты, CMake и development-пакет libcurl 8.23.0+.
+Если системный пакет старее, используйте актуальную сборку curl в отдельном локальном
+префиксе и передайте -DCURL_ROOT=/path/to/curl. Встроенная libcurl старых macOS не подходит.
+Основной путь сборки — CMake.
+
+```sh
+cmake -S . -B .build -DCMAKE_BUILD_TYPE=Release
+cmake --build .build --parallel
+ctest --test-dir .build --output-on-failure
+```
+
+## Запуск
+
+Из корня репозитория, с явными путями:
+
+```powershell
+.\.build\bin\Kufar-Telegram-Notifier.exe --config=./kufar-configuration.json --cache=./cached-data.json
+```
+
+Для Visual Studio добавьте Release в путь к EXE. В Linux/macOS:
+
+```sh
+./.build/bin/Kufar-Telegram-Notifier --config=./kufar-configuration.json --cache=./cached-data.json
+```
+
+Несуществующий кеш создаётся автоматически. Без аргументов конфигурация и кеш
+ищутся в текущей рабочей папке под именами `kufar-configuration.json` и `cached-data.json`.
+Поэтому из корня репозитория достаточно запустить `.\.build\bin\Kufar-Telegram-Notifier.exe`.
+При запуске из другой папки указывайте явные пути через `--config=` и `--cache=`.
+Конфигурация, кеш и ответы API разбираются как строгий JSON.
+После изменения настроек перезапустите бот.
+Остановка: Ctrl+C. Для непрерывной работы процесс и компьютер должны оставаться включёнными.
+
+Первый запуск с пустым кешем отправляет текущую выдачу; затем отправляются новые ID.
+Без фото отправляется текст, с одним фото — фото, с несколькими — альбом до 10 фото.
+Длинная подпись отправляется текстом. При отклонении фото HTTP 400 выполняется попытка
+отправить текст. ID сохраняется сразу после подтверждения Telegram.
+
+## Проверка реальных API без отправки
+
+Обычные регрессионные тесты используют поддельную сеть и не требуют токена.
+Каталог .tests исключён из Git по настройкам этой рабочей копии. Тестовые цели доступны,
+когда локальные исходники тестов присутствуют; без них основной бот по-прежнему собирается.
+Отдельная проверка делает только чтение:
+
+```powershell
+.\.venv\Scripts\cmake.exe --build .build --target api-smoke
+.\.build\bin\api-smoke.exe
+```
+
+Она проверяет URL-кодирование, запрет HTTP, загрузку/разбор Kufar и HTTPS Telegram
+с заведомо нерабочим токеном. Сообщения не отправляет.
+
+## Ошибки и ограничения
+
+- Telegram 401/403: проверьте токен, ID, Start и права бота.
+- Telegram 429: учитывается retry_after до часа, затем действует расписание обхода.
+- TLS: обновите библиотеку и корневые сертификаты, не отключайте проверку сертификатов.
+- Ошибка кеша останавливает бот. Проверьте путь и права. Оставшийся файл *.tmp
+  сначала проверьте и сохраните: он не затирается автоматически.
+- Используйте один процесс на один кеш. Кеш — массив положительных ID, отдельный от конфигурации.
+- Обрабатывается одно окно выдачи (limit), без обхода всех страниц.
+  При большом потоке сузьте поиск и увеличьте limit до 100, иначе возможны пропуски между опросами.
+- Кеш не очищается автоматически; файл больше 64 МБ не загружается.
+  Перед таким ростом понадобится архивирование или миграция кеша.
+- Потеря ответа после фактической доставки или остановка между отправкой и записью
+  кеша может дать повтор: операция Telegram и локальная запись не являются одной транзакцией.
+- API Kufar может меняться. Smoke-тест подтверждает работу на момент проверки.
+- Токены, попавшие в старые логи или публичные коммиты, отзовите через BotFather.

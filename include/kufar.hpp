@@ -10,6 +10,9 @@
 
 #include <vector>
 #include <optional>
+#include <string>
+#include <cstdint>
+#include <ctime>
 
 // TODO: В некоторых местах поменять оформление с enum на struct
 
@@ -190,7 +193,8 @@ namespace Kufar {
         };
     };
     
-    enum Category {
+    enum Category : int {
+        travel = 25000,                      // Путешествия
         realEstate = 1000,                  // Недвижимость
         carsAndTransport = 2000,            // Автомобили и транспорт
         householdAppliances = 15000,        // Бытовая техника
@@ -496,9 +500,9 @@ namespace Kufar {
     struct Ad {
         std::optional<std::string> tag;
         std::string title;
-        int id;
+        int64_t id;
         time_t date;
-        int price;
+        int64_t price;
         std::string sellerName;
         bool phoneNumberIsVisible;
         std::string link;

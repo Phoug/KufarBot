@@ -10,6 +10,7 @@
 #include "networking.hpp"
 #include "helperfunctions.hpp"
 #include <iostream>
+#include <sstream>
 
 namespace Kufar {
 
@@ -17,8 +18,8 @@ namespace Kufar {
     using namespace Networking;
     using nlohmann::json;
 
-    const string baseURL = "https://searchapi.kufar.by/v1/search/rendered-paginated?";
-    const string DEFAULT_MAX_PRICE = "1000000000";
+    const string baseURL = "https://api.kufar.by/search-api/v2/search/rendered-paginated?";
+    const string DEFAULT_MAX_PRICE = "214748364700";
 
     optional<string> PriceRange::joinPrice() const {
         if (!priceMin.has_value() && !priceMax.has_value()) { return nullopt; }
@@ -28,10 +29,10 @@ namespace Kufar {
         if (!priceMin.has_value()) {
             joinedPrice += '0';
         } else {
-            joinedPrice += to_string(priceMin.value() * 100);
+            joinedPrice += to_string(int64_t(priceMin.value()) * 100);
         }
         
-        joinedPrice = "r:" + joinedPrice + ',' + (priceMax.has_value() ? to_string(priceMax.value() * 100) : DEFAULT_MAX_PRICE);
+        joinedPrice = "r:" + joinedPrice + ',' + (priceMax.has_value() ? to_string(int64_t(priceMax.value()) * 100) : DEFAULT_MAX_PRICE);
         
         return joinedPrice;
     }
@@ -51,6 +52,10 @@ namespace Kufar {
     namespace {
         void insertImageURL (vector<string> &images, const string &id, const bool yams_storage) {
             if (yams_storage) {
+                if (id.size() < 2 || id.find_first_not_of(
+                        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-") != string::npos) {
+                    throw runtime_error("Invalid image ID");
+                }
                 images.push_back("https://yams.kufar.by/api/v1/kufar-ads/images/" + id.substr(0, 2) + "/" + id + ".jpg?rule=pictures");
             }
         }
@@ -63,28 +68,34 @@ namespace Kufar {
             
             string mediaStorage = imageData.at("media_storage");
             string path = imageData.at("path");
+            if (mediaStorage.empty() || mediaStorage.find_first_not_of(
+                    "abcdefghijklmnopqrstuvwxyz0123456789-") != string::npos ||
+                path.empty() || path.front() == '/' || path.find("..") != string::npos ||
+                path.find_first_of("?#\\\r\n") != string::npos) {
+                throw runtime_error("Invalid image path");
+            }
             images.push_back("https://" + mediaStorage + ".kufar.by/v1/gallery/" + path);
         }
         
-        void addURLParameter(ostringstream &ostream, const string &parameter, const string &value, const bool encodeValue = false) {
-            ostream << parameter << '=' << (encodeValue ? urlEncode(value) : value) << '&';
+        void addURLParameter(ostringstream &ostream, const string &parameter, const string &value) {
+            ostream << parameter << '=' << urlEncode(value) << '&';
         }
         
-        void addURLParameter(ostringstream &ostream, const string &parameter, const optional<string> &value, const bool encodeValue = false) {
+        void addURLParameter(ostringstream &ostream, const string &parameter, const optional<string> &value) {
             if (value.has_value()) {
-                addURLParameter(ostream, parameter, value.value(), encodeValue);
+                addURLParameter(ostream, parameter, value.value());
             }
         }
         
-        void addURLParameterBoolean(ostringstream &ostream, const string &parameter, const optional<bool> &value, const bool encodeValue = false) {
+        void addURLParameterBoolean(ostringstream &ostream, const string &parameter, const optional<bool> &value) {
             if (value.has_value() && value.value() == true) {
-                addURLParameter(ostream, parameter, to_string(value.value()), encodeValue);
+                addURLParameter(ostream, parameter, to_string(value.value()));
             }
         }
     
-        void addURLParameter(ostringstream &ostream, const string &parameter, const optional<int> &value, const bool encodeValue = false) {
+        void addURLParameter(ostringstream &ostream, const string &parameter, const optional<int> &value) {
             if (value.has_value()) {
-                addURLParameter(ostream, parameter, to_string(value.value()), encodeValue);
+                addURLParameter(ostream, parameter, to_string(value.value()));
             }
         }
     
@@ -95,7 +106,7 @@ namespace Kufar {
         ostringstream urlStream;
         urlStream << baseURL;
         
-        addURLParameter(urlStream, "query", configuration.tag, true);
+        addURLParameter(urlStream, "query", configuration.tag);
         addURLParameter(urlStream, "lang", configuration.language);
         addURLParameter(urlStream, "size", configuration.limit);
         addURLParameter(urlStream, "prc", configuration.priceRange.joinPrice());
@@ -113,42 +124,63 @@ namespace Kufar {
         
         if (configuration.sortType.has_value()) { addURLParameter(urlStream, "sort", getSortTypeUrlParameter(configuration.sortType.value())); }
         if (configuration.condition.has_value()) { addURLParameter(urlStream, "cnd", int(configuration.condition.value())); }
-        if (configuration.sellerType.has_value()) { addURLParameterBoolean(urlStream, "cmp", int(configuration.sellerType.value())); }
+        if (configuration.sellerType.has_value()) { addURLParameter(urlStream, "cmp", int(configuration.sellerType.value())); }
         if (configuration.region.has_value()) { addURLParameter(urlStream, "rgn", int(configuration.region.value())); }
-        if (configuration.areas.has_value()) { addURLParameter(urlStream, "ar", "v.or:" + joinIntVector(configuration.areas.value(), ",")); }
+        if (configuration.areas && !configuration.areas->empty()) { addURLParameter(urlStream, "ar", "v.or:" + joinIntVector(*configuration.areas, ",")); }
             
         string rawJson = getJSONFromURL(urlStream.str());
         
-        json ads = json::parse(rawJson).at("ads");
+        json ads = parseJSON(rawJson).at("ads");
+        if (!ads.is_array()) { throw runtime_error("Kufar ads must be an array"); }
 
-        for (const auto &ad : ads) {
-            Ad advert;
+        for (const auto &ad : ads) try {
+            Ad advert{};
             
             if (configuration.tag.has_value()) {
                 advert.tag = configuration.tag.value();
             }
             
             advert.title = ad.at("subject");
-            advert.id = ad.at("ad_id");
-            advert.date = timestampShift(zuluToTimestamp((string)ad.at("list_time")), 3);
-            advert.price = stoi((string)ad.at("price_byn"));
-            advert.phoneNumberIsVisible = !ad.at("phone_hidden");
+            const auto &id = ad.at("ad_id");
+            if (!id.is_number_integer() || id.get<long double>() <= 0 ||
+                (id.is_number_unsigned() && id.get<uint64_t>() > uint64_t(numeric_limits<int64_t>::max()))) { throw runtime_error("Invalid ad ID"); }
+            advert.id = id.get<int64_t>();
+            advert.date = zuluToTimestamp(ad.at("list_time").get<string>());
+            const auto &price = ad.at("price_byn");
+            if (price.is_string()) {
+                const auto raw = price.get<string>();
+                if (raw.empty() || raw.find_first_not_of("0123456789") != string::npos) {
+                    throw runtime_error("Invalid price");
+                }
+                advert.price = stoll(raw);
+            } else if (price.is_number_integer() && price.get<long double>() >= 0 &&
+                       (!price.is_number_unsigned() || price.get<uint64_t>() <= uint64_t(numeric_limits<int64_t>::max()))) {
+                advert.price = price.get<int64_t>();
+            } else { throw runtime_error("Invalid price"); }
+            advert.phoneNumberIsVisible = ad.contains("phone_hidden") && ad.at("phone_hidden").is_boolean() &&
+                !ad.at("phone_hidden").get<bool>();
             advert.link = ad.at("ad_link");
             
-            json accountParameters = ad.at("account_parameters");
+            json accountParameters = ad.value("account_parameters", json::array());
             for (const auto &accountParameter : accountParameters) {
-                if (accountParameter.at("p") == "name") {
-                    advert.sellerName = accountParameter.at("v");
+                if (accountParameter.is_object() && accountParameter.contains("p") &&
+                    accountParameter.at("p") == "name" && accountParameter.contains("v") &&
+                    accountParameter.at("v").is_string()) {
+                    advert.sellerName = accountParameter.at("v").get<string>();
                     break;
                 }
             }
             
-            json imagesArray = ad.at("images");
+            json imagesArray = ad.value("images", json::array());
             for (const auto &image : imagesArray) {
-                insertImageURL(advert.images, image);
+                try { insertImageURL(advert.images, image); }
+                catch (...) { /* An unavailable photo must not hide the advert. */ }
             }
             
+            // A broken optional field must not stop the remaining adverts in this response.
             adverts.push_back(advert);
+        } catch (...) {
+            cerr << "[Kufar]: Skipping malformed advert (response contents hidden)." << endl;
         }
         
         return adverts;
@@ -168,6 +200,8 @@ namespace Kufar {
             
     	string category(Category _category) {
             switch (_category) {
+                case Category::travel:
+                    return "Путешествия";
                 case Category::realEstate:
                     return "Недвижимость";
                 case Category::carsAndTransport:

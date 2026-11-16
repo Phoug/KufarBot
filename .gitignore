@@ -101,3 +101,14 @@ _deps
 ### Ignore bin folder
 bin/
 
+# Local settings and build tools
+.env
+.env.*
+!.env.example
+kufar-configuration.local.json
+cached-data.local.json
+*.tmp
+.build/
+.venv/
+.tests/
+kufar-configuration.json
